@@ -381,6 +381,7 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int) {
     val audio = remember { SliceAudioPlayer(ctx) }
     var playing by remember { mutableStateOf(false) }
     var offset by remember { mutableFloatStateOf(0f) }
+    var exporting by remember { mutableStateOf(false) }
     LaunchedEffect(pr) { if (pr != null) offset = pr.globalOffsetMs.toFloat() }
     DisposableEffect(Unit) {
         onDispose { try { video.release() } catch (_: Exception) {}; audio.release() }
@@ -435,20 +436,45 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int) {
                     Toast.makeText(ctx, "offset ${offset.toInt()} ms dipakai global", Toast.LENGTH_SHORT).show()
                 }
             }) { Text("Simpan Offset Global") }
-            OutlinedButton(onClick = {
-                scope.launch {
-                    val uri = Exporter.exportTakeToGallery(
-                        ctx, takePath!!, "RKStudio_slice${idx + 1}_${System.currentTimeMillis()}.mp4"
+            OutlinedButton(
+                enabled = !exporting,
+                onClick = {
+                    exporting = true
+                    video.pause()
+                    audio.stop()
+                    playing = false
+                    Exporter.exportTakeWithAudioToGallery(
+                        context = ctx,
+                        videoPath = takePath!!,
+                        audioPath = pr.audioPathInternal,
+                        sliceStartMs = s,
+                        sliceEndMs = e,
+                        audioDurationMs = pr.audioDurationMs,
+                        offsetMs = offset.toInt(),
+                        displayName = "RKStudio_slice${idx + 1}_${System.currentTimeMillis()}.mp4",
+                        onSuccess = {
+                            exporting = false
+                            Toast.makeText(
+                                ctx,
+                                "tersimpan di Gallery: video + musik slice",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        onFailure = { message ->
+                            exporting = false
+                            Toast.makeText(
+                                ctx,
+                                "export gagal: $message",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     )
-                    Toast.makeText(
-                        ctx,
-                        if (uri != null) "tersimpan di Gallery (video take)" else "gagal download",
-                        Toast.LENGTH_LONG
-                    ).show()
                 }
-            }) { Text("⬇ Gallery") }
+            ) { Text(if (exporting) "Exporting…" else "⬇ Gallery") }
         }
-        Text("Catatan: download v1 = video take; mux lagu+offset tahap export.",
-            style = MaterialTheme.typography.bodySmall)
+        Text(
+            "Export Gallery = video take + musik slice + offset dalam satu MP4.",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
