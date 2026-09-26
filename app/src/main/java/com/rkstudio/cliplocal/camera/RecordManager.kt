@@ -39,12 +39,13 @@ class StudioRecorder(private val context: Context) {
                         )
                     ).build()
                 videoCapture = VideoCapture.withOutput(recorder)
+                val vc = videoCapture!!
                 p.unbindAll()
                 p.bindToLifecycle(
                     lifecycle,
                     if (front) CameraSelector.DEFAULT_FRONT_CAMERA
                     else CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview, videoCapture
+                    preview, vc
                 )
             } catch (e: Exception) {
                 onError(e.message ?: "kamera error")
