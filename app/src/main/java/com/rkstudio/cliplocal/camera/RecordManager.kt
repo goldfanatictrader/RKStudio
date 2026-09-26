@@ -24,7 +24,7 @@ class StudioRecorder(private val context: Context) {
     private var provider: ProcessCameraProvider? = null
     var front: Boolean = false
 
-    fun bind(view: PreviewView, lifecycle: LifecycleOwner, onError: (String) -> Unit) {
+    fun bind(view: PreviewView, lifecycle: LifecycleOwner, onReady: () -> Unit = {}, onError: (String) -> Unit) {
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             try {
@@ -47,15 +47,16 @@ class StudioRecorder(private val context: Context) {
                     else CameraSelector.DEFAULT_BACK_CAMERA,
                     preview, vc
                 )
+                onReady()
             } catch (e: Exception) {
                 onError(e.message ?: "kamera error")
             }
         }, ContextCompat.getMainExecutor(context))
     }
 
-    fun flip(view: PreviewView, lifecycle: LifecycleOwner, onError: (String) -> Unit) {
+    fun flip(view: PreviewView, lifecycle: LifecycleOwner, onReady: () -> Unit = {}, onError: (String) -> Unit) {
         front = !front
-        bind(view, lifecycle, onError)
+        bind(view, lifecycle, onReady, onError)
     }
 
     fun start(

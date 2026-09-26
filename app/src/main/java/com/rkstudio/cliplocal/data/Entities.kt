@@ -36,6 +36,7 @@ data class Take(
 interface ProjectDao {
     @Insert suspend fun insert(p: Project): Long
     @Update suspend fun update(p: Project)
+    @Query("DELETE FROM projects WHERE id=:id") suspend fun deleteById(id: Long)
     @Query("SELECT * FROM projects ORDER BY createdAt DESC") suspend fun all(): List<Project>
     @Query("SELECT * FROM projects WHERE id=:id") suspend fun byId(id: Long): Project?
 }

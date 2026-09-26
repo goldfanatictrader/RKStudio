@@ -12,6 +12,9 @@ import com.rkstudio.cliplocal.data.FileStore
 import com.rkstudio.cliplocal.data.Project
 import com.rkstudio.cliplocal.data.Take
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 
 class StudioViewModel(app: Application) : AndroidViewModel(app) {
     private val db = AppDatabase.get(app)
@@ -55,14 +58,25 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 sliceDurationSec = sliceSec.coerceIn(5, 30)
             )
         )
-        val dur = FileStore.importAudio(getApplication(), audioUri, pid)
-        db.projectDao().update(
-            db.projectDao().byId(pid)!!.copy(
-                audioPathInternal = FileStore.audioFile(getApplication(), pid).absolutePath,
-                audioDurationMs = dur
+        try {
+            val duration = withContext(Dispatchers.IO) {
+                FileStore.importAudio(getApplication(), audioUri, pid)
+            }
+            require(duration > 0) { "Audio tidak valid atau durasinya tidak terbaca" }
+            db.projectDao().update(
+                db.projectDao().byId(pid)!!.copy(
+                    audioPathInternal = FileStore.audioFile(getApplication(), pid).absolutePath,
+                    audioDurationMs = duration
+                )
             )
-        )
-        return pid
+            return pid
+        } catch (error: Exception) {
+            withContext(NonCancellable + Dispatchers.IO) {
+                db.projectDao().deleteById(pid)
+                FileStore.projectDir(getApplication(), pid).deleteRecursively()
+            }
+            throw error
+        }
     }
 
     fun setSliceDuration(p: Project, sec: Int) = viewModelScope.launch {
@@ -71,7 +85,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         current = np
     }
 
-    fun setGlobalOffset(p: Project, offsetMs: Int) = viewModelScope.launch {
+    suspend fun setGlobalOffset(p: Project, offsetMs: Int) {
         val np = p.copy(globalOffsetMs = offsetMs.coerceIn(-1000, 1000))
         db.projectDao().update(np)
         current = np
