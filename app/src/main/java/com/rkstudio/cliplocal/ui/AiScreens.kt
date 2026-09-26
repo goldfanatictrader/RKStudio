@@ -219,6 +219,9 @@ fun AiStudioScreen(vm: StudioAiViewModel, project: Project?, onBack: () -> Unit,
                         Text("Video dianalisis dari lima frame berwaktu; file pendek hingga 8 MB ikut dilampirkan. Periksa gerak dan audio secara manual.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         AiResult("Observasi & konsep", vm.analysis)
+                        if (vm.analysis.isNotBlank()) TextButton(onClick = { tab = 1 }) {
+                            Text("Lanjut susun prompt →")
+                        }
                     }
                 }
                 1 -> {
@@ -230,6 +233,9 @@ fun AiStudioScreen(vm: StudioAiViewModel, project: Project?, onBack: () -> Unit,
                         Button(enabled = goal.isNotBlank() && !vm.busy, onClick = { vm.buildPrompt(goal) },
                             modifier = Modifier.fillMaxWidth()) { Text("Bangun prompt video") }
                         AiResult("Prompt builder", vm.prompt)
+                        if (vm.prompt.isNotBlank()) Button(onClick = {
+                            vm.usePromptForGeneration(); tab = 2
+                        }, modifier = Modifier.fillMaxWidth()) { Text("Pakai prompt di generator →") }
                         HorizontalDivider()
                         Text("Composer agent", style = MaterialTheme.typography.titleLarge)
                         vm.chat.forEach { turn ->
@@ -319,7 +325,7 @@ private fun GenerationPane(vm: StudioAiViewModel, onSettings: () -> Unit) {
         return
     }
     var kind by remember { mutableIntStateOf(0) }
-    var description by remember { mutableStateOf("") }
+    var description by remember(vm.generationDraft) { mutableStateOf(vm.generationDraft) }
     var selectedImage by remember { mutableStateOf("") }
     var selectedVideo by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf("t2v") }

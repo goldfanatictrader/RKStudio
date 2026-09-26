@@ -27,6 +27,8 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
     var error by mutableStateOf<String?>(null); private set
     var analysis by mutableStateOf(""); private set
     var prompt by mutableStateOf(""); private set
+    var generationDraft by mutableStateOf(""); private set
+    fun usePromptForGeneration() { generationDraft = prompt }
     val chat = mutableStateListOf<StudioTurn>()
     var imageUrls by mutableStateOf(store.outputs("image")); private set
     var videoUrls by mutableStateOf(store.outputs("video")); private set

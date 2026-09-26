@@ -21,7 +21,7 @@ android {
             isMinifyEnabled = false
         }
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".ai.preview"
         }
     }
     compileOptions {
