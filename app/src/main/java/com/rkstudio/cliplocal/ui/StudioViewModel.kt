@@ -72,7 +72,15 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun saveTake(
         pid: Long, idx: Int, startMs: Long, endMs: Long, videoPath: String
     ) {
-        db.takeDao().insert(Take(pid, idx, startMs, endMs, videoPath))
+        db.takeDao().insert(
+            Take(
+                projectId = pid,
+                sliceIndex = idx,
+                sliceStartMs = startMs,
+                sliceEndMs = endMs,
+                videoPathInternal = videoPath
+            )
+        )
     }
 
     suspend fun latestTake(pid: Long, idx: Int): Take? =
