@@ -72,7 +72,8 @@ class StudioUiTest {
         compose.onNodeWithText("1 dari 9").assertIsDisplayed()
         screenshot("05-queue")
         compose.onNodeWithText("Direkam").performClick()
-        compose.onNodeWithText("Tinjau").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Potongan 01").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Tinjau").assertIsDisplayed()
         screenshot("06-recorded-filter")
     }
 
