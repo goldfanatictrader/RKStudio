@@ -103,6 +103,19 @@ class StudioUiTest {
         compose.onNodeWithText("Izinkan kamera").assertIsDisplayed()
         screenshot("09-camera-permission")
     }
+    @Test fun composerMarkdownRendersAsReadableBlocks() {
+        compose.setContent {
+            StudioTheme { Surface {
+                AiMarkdown("## Prompt video\n\nTampilkan **subjek utama** secara konsisten.\n\n- Kamera: dolly-in\n- Durasi: 8 detik\n\n```text\nCinematic music video, 8 seconds\n```")
+            } }
+        }
+        compose.onNodeWithText("Prompt video").assertIsDisplayed()
+        compose.onNodeWithText("Tampilkan subjek utama secara konsisten.").assertExists()
+        compose.onNodeWithText("Kamera: dolly-in").assertExists()
+        compose.onNodeWithText("Cinematic music video, 8 seconds").assertExists()
+        compose.onNodeWithText("## Prompt video").assertDoesNotExist()
+    }
+
     @Test fun providerGateAndLocalKeyEncryption() {
         val store = AiConfigStore(app)
         store.clearGemini()

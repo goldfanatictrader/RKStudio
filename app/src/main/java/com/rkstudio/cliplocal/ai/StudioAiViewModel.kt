@@ -28,7 +28,11 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
     var analysis by mutableStateOf(""); private set
     var prompt by mutableStateOf(""); private set
     var generationDraft by mutableStateOf(""); private set
-    fun usePromptForGeneration() { generationDraft = prompt }
+    fun usePromptForGeneration() {
+        val cleanPrompt = Regex("(?s)```(?:[a-zA-Z0-9_-]+)?\\s*(.*?)```")
+            .find(prompt)?.groupValues?.get(1)?.trim()
+        generationDraft = cleanPrompt?.takeIf { it.isNotBlank() } ?: prompt
+    }
     val chat = mutableStateListOf<StudioTurn>()
     var imageUrls by mutableStateOf(store.outputs("image")); private set
     var videoUrls by mutableStateOf(store.outputs("video")); private set
@@ -142,10 +146,13 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
             penjelasan pendek dalam Bahasa Indonesia. Target shot 8 detik.
             Brief: $direction
             Analisis konteks (boleh kosong): ${analysis.take(12000)}
-            Hasil: prompt visual konkret (subject, action, setting, framing/lens, camera motion,
-            lighting, color, timing beat); audio/sfx hanya jika diinginkan; negative constraints;
-            anchor continuity; dan asumsi yang perlu dikonfirmasi. Hindari klaim generator tertentu
-            mendukung fitur yang belum diketahui. Tidak ada referensi karakter bila belum diberikan.
+            Format wajib Markdown yang rapi dan ringkas dengan heading ##, paragraf pendek, dan bullet sederhana; jangan gunakan tabel. Susun: Ringkasan konsep;
+            Prompt generator (English); Negative prompt; Continuity & asumsi. Letakkan SELURUH teks
+            siap-tempel untuk generator dalam tepat satu fenced code block di bawah heading Prompt generator.
+            Prompt visual konkret mencakup subject, action, setting, framing/lens, camera motion,
+            lighting, color, timing beat; audio/sfx hanya jika diinginkan; negative constraints;
+            continuity anchor. Hindari klaim fitur generator yang belum diketahui. Jangan mengarang
+            referensi karakter bila belum diberikan.
         """.trimIndent()
         prompt = withContext(Dispatchers.IO) {
             AiGateway.ask(config, JSONArray().put(AiGateway.text("user", request)))

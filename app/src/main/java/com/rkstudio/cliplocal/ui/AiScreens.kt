@@ -82,7 +82,7 @@ private fun AiResult(title: String, content: String) {
         containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(content, style = MaterialTheme.typography.bodyMedium)
+            AiMarkdown(content, Modifier.fillMaxWidth())
             AiCopy(content)
         }
     }
@@ -245,7 +245,8 @@ fun AiStudioScreen(vm: StudioAiViewModel, project: Project?, onBack: () -> Unit,
                                 Column(Modifier.fillMaxWidth().padding(14.dp)) {
                                     Text(if (turn.role == "user") "Kamu" else "Composer",
                                         style = MaterialTheme.typography.labelMedium)
-                                    Text(turn.text)
+                                    if (turn.role == "assistant") AiMarkdown(turn.text, Modifier.fillMaxWidth())
+                                    else Text(turn.text)
                                 }
                             }
                         }
