@@ -76,14 +76,15 @@ private fun AiCopy(text: String, label: String = "Salin") {
 }
 
 @Composable
-private fun AiResult(title: String, content: String) {
+private fun AiResult(title: String, content: String, copyText: String = content,
+    copyLabel: String = "Salin") {
     if (content.isBlank()) return
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(
         containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             AiMarkdown(content, Modifier.fillMaxWidth())
-            AiCopy(content)
+            AiCopy(copyText, copyLabel)
         }
     }
 }
@@ -232,7 +233,7 @@ fun AiStudioScreen(vm: StudioAiViewModel, project: Project?, onBack: () -> Unit,
                             minLines = 3, modifier = Modifier.fillMaxWidth())
                         Button(enabled = goal.isNotBlank() && !vm.busy, onClick = { vm.buildPrompt(goal) },
                             modifier = Modifier.fillMaxWidth()) { Text("Bangun prompt video") }
-                        AiResult("Prompt builder", vm.prompt)
+                        AiResult("Prompt builder", vm.prompt, vm.generationPromptText(), "Salin prompt siap-tempel")
                         if (vm.prompt.isNotBlank()) Button(onClick = {
                             vm.usePromptForGeneration(); tab = 2
                         }, modifier = Modifier.fillMaxWidth()) { Text("Pakai prompt di generator →") }

@@ -28,11 +28,10 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
     var analysis by mutableStateOf(""); private set
     var prompt by mutableStateOf(""); private set
     var generationDraft by mutableStateOf(""); private set
-    fun usePromptForGeneration() {
-        val cleanPrompt = Regex("(?s)```(?:[a-zA-Z0-9_-]+)?\\s*(.*?)```")
-            .find(prompt)?.groupValues?.get(1)?.trim()
-        generationDraft = cleanPrompt?.takeIf { it.isNotBlank() } ?: prompt
-    }
+    fun generationPromptText(): String = Regex("(?s)```(?:[a-zA-Z0-9_-]+)?\\s*(.*?)```")
+        .find(prompt)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() } ?: prompt
+
+    fun usePromptForGeneration() { generationDraft = generationPromptText() }
     val chat = mutableStateListOf<StudioTurn>()
     var imageUrls by mutableStateOf(store.outputs("image")); private set
     var videoUrls by mutableStateOf(store.outputs("video")); private set
