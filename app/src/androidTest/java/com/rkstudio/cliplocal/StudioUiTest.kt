@@ -24,9 +24,9 @@ class StudioUiTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        val dir = File(app.getExternalFilesDir(null), "qa").apply { mkdirs() }
+        val dir = File(app.filesDir, "qa").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use {
-            compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+            compose.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
     }
 

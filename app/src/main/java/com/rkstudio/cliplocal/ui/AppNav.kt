@@ -53,13 +53,26 @@ import com.rkstudio.cliplocal.data.SliceHelper
 import com.rkstudio.cliplocal.export.Exporter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.rkstudio.cliplocal.ai.StudioAiViewModel
 
 @Composable
-fun AppNav(vm: StudioViewModel = viewModel()) {
+fun AppNav(vm: StudioViewModel = viewModel(), ai: StudioAiViewModel = viewModel()) {
     val nav = rememberNavController()
     NavHost(nav, startDestination = "projects") {
+        composable("ai") {
+            AiStudioScreen(ai, null, { nav.popBackStack() }, { nav.navigate("ai-settings") })
+        }
+        composable("ai/{pid}", listOf(navArgument("pid") { type = NavType.LongType })) { back ->
+            val pid = back.arguments!!.getLong("pid")
+            LaunchedEffect(pid) { vm.loadProject(pid) }
+            AiStudioScreen(ai, vm.current?.takeIf { it.id == pid },
+                { nav.popBackStack() }, { nav.navigate("ai-settings") })
+        }
+        composable("ai-settings") {
+            AiSettingsScreen(ai) { nav.popBackStack() }
+        }
         composable("projects") {
-            ProjectListScreen(vm, { nav.navigate("create") }, { nav.navigate("slices/$it") })
+            ProjectListScreen(vm, { nav.navigate("create") }, { nav.navigate("slices/$it") }, { nav.navigate("ai") })
         }
         composable("create") {
             CreateProjectScreen(
@@ -77,7 +90,8 @@ fun AppNav(vm: StudioViewModel = viewModel()) {
                 pid = pid,
                 onBack = { nav.popBackStack() },
                 onRecord = { idx -> nav.navigate("record/$pid/$idx") },
-                onPreview = { idx -> nav.navigate("preview/$pid/$idx") }
+                onPreview = { idx -> nav.navigate("preview/$pid/$idx") },
+                onAi = { nav.navigate("ai/$pid") }
             )
         }
         composable(
@@ -172,7 +186,7 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-fun ProjectListScreen(vm: StudioViewModel, onCreate: () -> Unit, onOpen: (Long) -> Unit) {
+fun ProjectListScreen(vm: StudioViewModel, onCreate: () -> Unit, onOpen: (Long) -> Unit, onAi: () -> Unit) {
     LaunchedEffect(Unit) { vm.refreshProjects() }
     var query by rememberSaveable { mutableStateOf("") }
     val visible = vm.projects.filter { it.videoTitle.contains(query, true) || it.musicTitle.contains(query, true) }
@@ -196,6 +210,18 @@ fun ProjectListScreen(vm: StudioViewModel, onCreate: () -> Unit, onOpen: (Long) 
                 }
                 Spacer(Modifier.height(24.dp))
                 ScreenHeader("Studio kamu", "Dari lagu, jadi referensi gerak.")
+            }
+            item {
+                OutlinedCard(onClick = onAi, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            SectionLabel("CREATIVE LAB")
+                            Text("Analisis lagu · Prompt · Generator", style = MaterialTheme.typography.titleMedium)
+                        }
+                        Text("Buka →", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
             if (vm.projects.isNotEmpty()) {
                 item {
@@ -372,6 +398,9 @@ fun SlicesScreen(vm: StudioViewModel, pid: Long, onBack: () -> Unit,
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ScreenHeader(project.videoTitle, project.musicTitle, onBack) }
+            item { OutlinedButton(onClick = onAi, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("✦ Analisis lagu & konsep video")
+            } }
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

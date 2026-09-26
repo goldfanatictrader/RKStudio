@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- RK Studio: 100% lokal, tanpa INTERNET -->
+    <!-- Media tetap lokal sampai pengguna memilih fitur AI online. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@android:mipmap/sym_def_app_icon"
         android:label="RK Studio"
         android:supportsRtl="true"
