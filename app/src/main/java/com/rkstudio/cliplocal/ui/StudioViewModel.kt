@@ -1,3 +1,5 @@
+[Reading 96 lines from start (total: 96 lines, 0 remaining)]
+
 package com.rkstudio.cliplocal.ui
 
 import android.app.Application
@@ -19,9 +21,17 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     var projects by mutableStateOf(emptyList<Project>()); private set
     var current by mutableStateOf<Project?>(null); private set
     var takes by mutableStateOf(emptyList<Take>()); private set
+    var recordedCounts by mutableStateOf<Map<Long, Int>>(emptyMap()); private set
 
     fun refreshProjects() = viewModelScope.launch {
-        projects = db.projectDao().all()
+        val list = db.projectDao().all()
+        projects = list
+        recordedCounts = list.associate { project ->
+            project.id to db.takeDao().byProject(project.id)
+                .map { it.sliceIndex }
+                .distinct()
+                .size
+        }
     }
 
     suspend fun loadProject(pid: Long): Project? {
