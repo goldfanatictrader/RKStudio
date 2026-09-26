@@ -81,6 +81,8 @@ class StudioUiTest {
         compose.waitUntil(10000) { compose.onAllNodesWithText("Ekspor video referensi").fetchSemanticsNodes().isNotEmpty() }
         screenshot("07-review")
         compose.onNodeWithText("Sinkronisasi audio").performScrollTo().performClick()
+        compose.waitForIdle()
+        screenshot("08-sync-open")
         compose.onNodeWithText("Terapkan ke seluruh proyek").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("+50 ms").performClick()
         compose.onNodeWithText("50 ms").assertExists()

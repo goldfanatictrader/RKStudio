@@ -638,7 +638,10 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, 
             dismissButton = { TextButton(onClick = { showRetake = false }) { Text("Batal") } })
     }
     if (showSync && project != null) {
-        ModalBottomSheet(onDismissRequest = { showSync = false }) {
+        ModalBottomSheet(
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            onDismissRequest = { showSync = false }
+        ) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 SectionLabel("PENYESUAIAN LANJUTAN")
