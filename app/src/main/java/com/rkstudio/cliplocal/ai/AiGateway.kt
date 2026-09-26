@@ -105,8 +105,13 @@ object AiGateway {
             var count = 0
             for (part in times) {
                 val timeMs = (duration * part).toLong()
+                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 512
+                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 512
+                val factor = 512.0 / maxOf(width, height, 1)
                 val bitmap = retriever.getScaledFrameAtTime(timeMs * 1000,
-                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 512, 512) ?: continue
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                    (width * factor).toInt().coerceAtLeast(1),
+                    (height * factor).toInt().coerceAtLeast(1)) ?: continue
                 val stream = ByteArrayOutputStream()
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 72, stream)
                 bitmap.recycle()

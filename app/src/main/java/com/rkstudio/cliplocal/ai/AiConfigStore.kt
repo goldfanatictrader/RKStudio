@@ -9,6 +9,7 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONArray
 
 data class AiConfig(val endpoint: String = "", val model: String = "", val apiKey: String = "",
     val simpleKey: String = "") {
@@ -65,6 +66,15 @@ class AiConfigStore(private val context: Context) {
     fun clearGemini() { prefs.edit().remove("endpoint").remove("model").remove("key").apply() }
     fun clearSimple() { prefs.edit().remove("simple").apply() }
 
+    fun outputs(kind: String): List<String> {
+        val raw = prefs.getString("outputs_$kind", "[]").orEmpty()
+        return runCatching { JSONArray(raw).let { list ->
+            (0 until list.length()).mapNotNull { list.optString(it).takeIf(String::isNotBlank) }
+        } }.getOrDefault(emptyList())
+    }
+    fun saveOutputs(kind: String, urls: List<String>) {
+        prefs.edit().putString("outputs_$kind", JSONArray(urls).toString()).apply()
+    }
     fun job(): String = prefs.getString("simple_job", "").orEmpty()
     fun saveJob(jobId: String) { prefs.edit().putString("simple_job", jobId).apply() }
     fun clearJob() { prefs.edit().remove("simple_job").apply() }

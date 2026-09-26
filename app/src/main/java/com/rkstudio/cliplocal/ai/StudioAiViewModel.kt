@@ -22,13 +22,14 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
     var images by mutableStateOf(emptyList<GenerationModel>()); private set
     var videos by mutableStateOf(emptyList<GenerationModel>()); private set
     var credits by mutableStateOf<String?>(null); private set
+    var creditCost by mutableStateOf<String?>(null); private set
     var busy by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
     var analysis by mutableStateOf(""); private set
     var prompt by mutableStateOf(""); private set
     val chat = mutableStateListOf<StudioTurn>()
-    var imageUrls by mutableStateOf(emptyList<String>()); private set
-    var videoUrls by mutableStateOf(emptyList<String>()); private set
+    var imageUrls by mutableStateOf(store.outputs("image")); private set
+    var videoUrls by mutableStateOf(store.outputs("video")); private set
     var jobState by mutableStateOf(""); private set
     private var polling = false
 
@@ -173,6 +174,7 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
         val list = data.optJSONArray("images") ?: JSONArray()
         imageUrls = (0 until list.length()).mapNotNull { list.optJSONObject(it)?.optString("url")?.takeIf(String::isNotBlank) }
         require(imageUrls.isNotEmpty()) { "Server belum memberikan gambar. Periksa kredit dan coba lagi." }
+        store.saveOutputs("image", imageUrls)
         credits = data.opt("remainingCredits")?.toString() ?: credits
     }
 
@@ -193,6 +195,7 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
         store.saveJob(record.toString())
         jobState = data.optString("status", "created")
         credits = data.opt("remainingCredits")?.toString() ?: credits
+        creditCost = data.opt("creditCost")?.toString()
         viewModelScope.launch { pollVideo(record) }
     }
 
@@ -226,6 +229,7 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
                             video.optString("url").ifBlank { video.optString("fifeUrl") }.takeIf(String::isNotBlank)
                         }
                     }
+                    store.saveOutputs("video", videoUrls)
                     return
                 }
                 if (jobState in listOf("failed", "cancelled", "error")) {

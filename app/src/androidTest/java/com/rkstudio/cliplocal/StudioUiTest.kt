@@ -8,6 +8,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.rkstudio.cliplocal.data.*
+import com.rkstudio.cliplocal.ai.*
+import org.junit.Assert.*
 import com.rkstudio.cliplocal.ui.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -99,4 +101,20 @@ class StudioUiTest {
         compose.onNodeWithText("Izinkan kamera").assertIsDisplayed()
         screenshot("09-camera-permission")
     }
+    @Test fun providerGateAndLocalKeyEncryption() {
+        val store = AiConfigStore(app)
+        store.clearGemini()
+        store.clearSimple()
+        val vm = StudioAiViewModel(app)
+        compose.setContent { StudioTheme { AiStudioScreen(vm, null, {}, {}) } }
+        compose.onNodeWithText("Konfigurasi analisis").assertIsDisplayed()
+        screenshot("10-ai-config-required")
+        store.saveGemini("https://example.org/v1", "ag/gemini-3.8-flash", "test-secret-only")
+        assertEquals("test-secret-only", store.read().apiKey)
+        val raw = app.getSharedPreferences("rkstudio_ai_config", 0).getString("key", "")!!
+        assertFalse(raw.contains("test-secret-only"))
+        store.clearGemini()
+        assertTrue(store.read().apiKey.isBlank())
+    }
+
 }

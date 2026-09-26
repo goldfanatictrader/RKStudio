@@ -22,6 +22,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.rkstudio.cliplocal.ai.*
 import com.rkstudio.cliplocal.data.Project
 import kotlinx.coroutines.Dispatchers
@@ -279,6 +280,9 @@ private fun RemoteImage(url: String) {
 @Composable
 private fun ResultLink(label: String, url: String) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var saving by remember(url) { mutableStateOf(false) }
+    var result by remember(url) { mutableStateOf("") }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, style = MaterialTheme.typography.titleMedium)
@@ -289,6 +293,19 @@ private fun ResultLink(label: String, url: String) {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 }) { Text("Buka") }
             }
+            Button(enabled = !saving, onClick = {
+                saving = true
+                scope.launch {
+                    result = try {
+                        withContext(Dispatchers.IO) {
+                            AiMediaSaver.save(ctx, url, video = label.startsWith("Video"))
+                        }
+                        "Tersimpan di Galeri / RKStudio"
+                    } catch (e: Exception) { e.message ?: "Gagal menyimpan file." }
+                    saving = false
+                }
+            }) { Text(if (saving) "Mengunduh…" else "Simpan ke Galeri") }
+            if (result.isNotBlank()) Text(result, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -397,6 +414,7 @@ private fun GenerationPane(vm: StudioAiViewModel, onSettings: () -> Unit) {
     }
     if (vm.jobState.isNotBlank()) {
         Text("Job video: ${vm.jobState}", style = MaterialTheme.typography.titleMedium)
+        vm.creditCost?.let { Text("Biaya job: $it kredit", style = MaterialTheme.typography.bodySmall) }
         Text("ID job disimpan lokal dan status dicek kembali saat studio dibuka.",
             style = MaterialTheme.typography.bodySmall)
     }

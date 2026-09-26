@@ -362,7 +362,7 @@ fun CreateProjectScreen(vm: StudioViewModel, onBack: () -> Unit, onDone: (Long) 
 
 @Composable
 fun SlicesScreen(vm: StudioViewModel, pid: Long, onBack: () -> Unit,
-    onRecord: (Int) -> Unit, onPreview: (Int) -> Unit) {
+    onRecord: (Int) -> Unit, onPreview: (Int) -> Unit, onAi: () -> Unit) {
     val ctx = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     val sliceAudio = remember { SliceAudioPlayer(ctx) }
