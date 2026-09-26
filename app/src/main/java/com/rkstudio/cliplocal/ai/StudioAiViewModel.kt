@@ -232,10 +232,11 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                     store.saveOutputs("video", videoUrls)
+                    store.clearJob()
                     return
                 }
                 if (jobState in listOf("failed", "cancelled", "error")) {
-                    error = "Job video berakhir: $jobState"; return
+                    store.clearJob(); error = "Job video berakhir: $jobState"; return
                 }
                 delay(7000)
             }

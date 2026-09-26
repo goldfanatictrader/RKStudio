@@ -64,7 +64,7 @@ class AiConfigStore(private val context: Context) {
 
     fun saveSimple(key: String) { prefs.edit().putString("simple", seal(key)).apply() }
     fun clearGemini() { prefs.edit().remove("endpoint").remove("model").remove("key").apply() }
-    fun clearSimple() { prefs.edit().remove("simple").apply() }
+    fun clearSimple() { prefs.edit().remove("simple").remove("outputs_image").remove("outputs_video").remove("simple_job").apply() }
 
     fun outputs(kind: String): List<String> {
         val raw = prefs.getString("outputs_$kind", "[]").orEmpty()
