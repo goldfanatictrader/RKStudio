@@ -1,11 +1,10 @@
+[Reading 25 lines from start (total: 25 lines, 0 remaining)]
+
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- RK Studio: 100% lokal, tanpa INTERNET -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
 
