@@ -1,66 +1,98 @@
 package com.rkstudio.cliplocal.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-
-// Opsi terbaik: Material3 dark custom (Opsi 3) + pola DAW/Mume/TikTok.
-// 5 layar: ProjectList -> Create -> SliceList -> Record -> Preview(+offset+download)
+import androidx.navigation.navArgument
+import com.rkstudio.cliplocal.audio.BeepPlayer
+import com.rkstudio.cliplocal.audio.SliceAudioPlayer
+import com.rkstudio.cliplocal.camera.StudioRecorder
+import com.rkstudio.cliplocal.data.FileStore
+import com.rkstudio.cliplocal.data.SliceHelper
+import com.rkstudio.cliplocal.export.Exporter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun AppNav() {
+fun AppNav(vm: StudioViewModel = viewModel()) {
     val nav = rememberNavController()
     NavHost(nav, startDestination = "projects") {
-        composable("projects") { ProjectListScreen({ nav.navigate("create") }, { nav.navigate("slices/$it") }) }
-        composable("create") { CreateProjectScreen({ nav.popBackStack() }) }
-        composable("slices/{pid}") { SlicesScreen({ nav.navigate("record/0/0") }, { nav.navigate("preview/0/0") }) }
-        composable("record/{pid}/{idx}") { RecordScreen() }
-        composable("preview/{pid}/{idx}") { PreviewScreen() }
-    }
-}
-
-@Composable fun ProjectListScreen(onCreate: () -> Unit, onOpen: (Long) -> Unit) {
-    Scaffold(floatingActionButton = { Button(onClick = onCreate) { Text("+ Project") } }) { p ->
-        LazyColumn(Modifier.padding(p).padding(16.dp)) {
-            item { Text("RK Studio", style = MaterialTheme.typography.headlineMedium) }
-            item { Text("Pilih project untuk mulai shoot clip (semua lokal).", style = MaterialTheme.typography.bodyMedium) }
-            // TODO: Room list
+        composable("projects") {
+            ProjectListScreen(vm, { nav.navigate("create") }, { nav.navigate("slices/$it") })
+        }
+        composable("create") {
+            CreateProjectScreen(vm, { pid -> nav.navigate("slices/$pid") { popUpTo("projects") } })
+        }
+        composable(
+            "slices/{pid}", listOf(navArgument("pid") { type = NavType.LongType })
+        ) { back ->
+            val pid = back.arguments!!.getLong("pid")
+            SlicesScreen(vm, pid,
+                { idx -> nav.navigate("record/$pid/$idx") },
+                { idx -> nav.navigate("preview/$pid/$idx") })
+        }
+        composable(
+            "record/{pid}/{idx}",
+            listOf(navArgument("pid") { type = NavType.LongType }, navArgument("idx") { type = NavType.IntType })
+        ) { back ->
+            RecordScreen(vm, back.arguments!!.getLong("pid"), back.arguments!!.getInt("idx")) { p, i ->
+                nav.navigate("preview/$p/$i") { popUpTo("record/$p/$i") { inclusive = true } }
+            }
+        }
+        composable(
+            "preview/{pid}/{idx}",
+            listOf(navArgument("pid") { type = NavType.LongType }, navArgument("idx") { type = NavType.IntType })
+        ) { back ->
+            PreviewScreen(vm, back.arguments!!.getLong("pid"), back.arguments!!.getInt("idx"))
         }
     }
 }
 
-@Composable fun CreateProjectScreen(onDone: () -> Unit) {
-    var video by remember { mutableStateOf("") }
-    var music by remember { mutableStateOf("") }
-    var sliceSec by remember { mutableFloatStateOf(10f) }
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Create Project", style = MaterialTheme.typography.headlineSmall)
-        OutlinedTextField(video, { video = it }, label = { Text("Judul Video") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(music, { music = it }, label = { Text("Judul Music") }, modifier = Modifier.fillMaxWidth())
-        Button(onClick = {}) { Text("Upload Lagu (local picker)") }
-        Text("Durasi slice: ${sliceSec.toInt()} detik (default 10)")
-        Slider(sliceSec, {}, valueRange = 5f..30f, steps = 24)
-        Button(onClick = onDone) { Text("Simpan Project") }
-    }
-}
+// ---------- 1. PROJECT LIST ----------
 
-@Composable fun SlicesScreen(onRecord: () -> Unit, onPreview: () -> Unit) {
-    LazyColumn(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Text("Slices (tiap 10 dtk)", style = MaterialTheme.typography.headlineSmall) }
-        items((0 until 6).toList()) { i ->
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column { Text("Slice ${i + 1}"); Text("00:${i * 10}-00:${(i + 1) * 10}", style = MaterialTheme.typography.bodySmall) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onRecord) { Text("● Rec") }
-                        OutlinedButton(onClick = onPreview) { Text("▶ Prev") }
+@Composable
+fun ProjectListScreen(vm: StudioViewModel, onCreate: () -> Unit, onOpen: (Long) -> Unit) {
+    LaunchedEffect(Unit) { vm.refreshProjects() }
+    Scaffold(floatingActionButton = { Button(onClick = onCreate) { Text("+ Project") } }) { p ->
+        LazyColumn(Modifier.padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Text("RK Studio", style = MaterialTheme.typography.headlineMedium)
+                Text("Semua proses lokal, tanpa internet.", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+            }
+            items(vm.projects, key = { it.id }) { pr ->
+                val n = SliceHelper.count(pr.audioDurationMs, pr.sliceDurationSec)
+                Card(onClick = { onOpen(pr.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(pr.videoTitle, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "${pr.musicTitle} • ${FileStore.fmt(pr.audioDurationMs)} • $n slice @${pr.sliceDurationSec} dtk",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
@@ -68,26 +100,302 @@ fun AppNav() {
     }
 }
 
-@Composable fun RecordScreen() {
-    var count by remember { mutableIntStateOf(0) } // 3-2-1 overlay + beep
+// ---------- 2. CREATE PROJECT ----------
+
+@Composable
+fun CreateProjectScreen(vm: StudioViewModel, onDone: (Long) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var video by remember { mutableStateOf("") }
+    var music by remember { mutableStateOf("") }
+    var sliceSec by remember { mutableFloatStateOf(10f) }
+    var picked by remember { mutableStateOf<android.net.Uri?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        picked = uri
+    }
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Record Slice (kamera + lagu internal)", style = MaterialTheme.typography.headlineSmall)
-        Card(Modifier.fillMaxWidth().height(320.dp)) { Box(Modifier.fillMaxSize()) { Text("Viewfinder CameraX (mute mic)", modifier = Modifier.padding(16.dp)) } }
-        if (count > 0) Text("Countdown: $count + beep", style = MaterialTheme.typography.headlineLarge)
-        Button(onClick = {}) { Text("Mulai 3-2-1 + Record") }
+        Text("Create Project", style = MaterialTheme.typography.headlineSmall)
+        OutlinedTextField(video, { video = it }, label = { Text("Judul Video") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(music, { music = it }, label = { Text("Judul Music") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { picker.launch("audio/*") }) {
+            Text(if (picked == null) "Upload Lagu" else "Lagu: ${picked!!.lastPathSegment?.takeLast(24)} ✓ (ganti)")
+        }
+        Text("Durasi slice: ${sliceSec.toInt()} detik (default 10)")
+        Slider(sliceSec, { sliceSec = it }, valueRange = 5f..30f, steps = 24)
+        Button(
+            enabled = picked != null && !saving,
+            onClick = {
+                saving = true
+                scope.launch {
+                    try {
+                        val pid = vm.createProject(video, music, sliceSec.toInt(), picked!!)
+                        onDone(pid)
+                    } catch (e: Exception) {
+                        Toast.makeText(ctx, "gagal: ${e.message}", Toast.LENGTH_LONG).show()
+                        saving = false
+                    }
+                }
+            }
+        ) { Text(if (saving) "Menyimpan..." else "Simpan Project") }
     }
 }
 
-@Composable fun PreviewScreen() {
-    var offset by remember { mutableFloatStateOf(0f) } // -1000..+1000 ms
+// ---------- 3. SLICE LIST ----------
+
+@Composable
+fun SlicesScreen(vm: StudioViewModel, pid: Long, onRecord: (Int) -> Unit, onPreview: (Int) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current
+    LaunchedEffect(pid) { vm.loadProject(pid) }
+    DisposableEffect(lifecycle) {
+        val obs = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_RESUME) vm.refreshTakes(pid)
+        }
+        lifecycle.lifecycle.addObserver(obs)
+        onDispose { lifecycle.lifecycle.removeObserver(obs) }
+    }
+    val pr = vm.current
+    if (pr == null || pr.id != pid) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
+    var slider by remember(pr.sliceDurationSec) { mutableFloatStateOf(pr.sliceDurationSec.toFloat()) }
+    val n = SliceHelper.count(pr.audioDurationMs, pr.sliceDurationSec)
+    LazyColumn(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Text(pr.videoTitle, style = MaterialTheme.typography.headlineSmall)
+            Text("${pr.musicTitle} • ${FileStore.fmt(pr.audioDurationMs)} • offset ${pr.globalOffsetMs} ms",
+                style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(4.dp))
+            Text("Durasi slice: ${slider.toInt()} detik")
+            Slider(slider, { slider = it }, valueRange = 5f..30f, steps = 24,
+                onValueChangeFinished = { scope.launch { vm.setSliceDuration(pr, slider.toInt()) } })
+        }
+        items((0 until n).toList()) { i ->
+            val (s, e) = SliceHelper.range(i, pr.sliceDurationSec, pr.audioDurationMs)
+            val hasTake = vm.takes.any { it.sliceIndex == i }
+            Card(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(12.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Slice ${i + 1} ${if (hasTake) "●" else ""}")
+                        Text("${FileStore.fmt(s)} - ${FileStore.fmt(e)}",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onRecord(i) }) { Text("● Rec") }
+                        OutlinedButton(onClick = { onPreview(i) }) { Text("▶ Prev") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------- 4. RECORD ----------
+
+@Composable
+fun RecordScreen(vm: StudioViewModel, pid: Long, idx: Int, onRecorded: (Long, Int) -> Unit) {
+    val ctx = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(pid) { vm.loadProject(pid) }
+    val pr = vm.current?.takeIf { it.id == pid }
+
+    var granted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { g -> granted = g[Manifest.permission.CAMERA] == true }
+    LaunchedEffect(Unit) {
+        if (!granted) permLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+    }
+
+    val recorder = remember { StudioRecorder(ctx) }
+    val audio = remember { SliceAudioPlayer(ctx) }
+    var pv by remember { mutableStateOf<PreviewView?>(null) }
+    var phase by remember { mutableStateOf("idle") } // idle|count|rec|done
+    var count by remember { mutableIntStateOf(0) }
+    var elapsed by remember { mutableLongStateOf(0L) }
+    var err by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose { try { audio.release() } catch (_: Exception) {}; recorder.stop(); recorder.unbind() }
+    }
+    LaunchedEffect(phase) {
+        if (phase == "rec") {
+            val t0 = System.currentTimeMillis()
+            while (phase == "rec") {
+                elapsed = System.currentTimeMillis() - t0
+                delay(100)
+            }
+        } else elapsed = 0
+    }
+
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Preview (video + lagu slice bareng)", style = MaterialTheme.typography.headlineSmall)
-        Card(Modifier.fillMaxWidth().height(240.dp)) { Box(Modifier.fillMaxSize()) { Text("Video take (mute) + audio slice", modifier = Modifier.padding(16.dp)) } }
-        Text("Offset: ${offset.toInt()} ms")
+        val info = if (pr != null) {
+            val (s, e) = SliceHelper.range(idx, pr.sliceDurationSec, pr.audioDurationMs)
+            "Slice ${idx + 1} • ${FileStore.fmt(s)}-${FileStore.fmt(e)} (${(e - s) / 1000} dtk)"
+        } else "memuat..."
+        Text(info, style = MaterialTheme.typography.headlineSmall)
+        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        Card(Modifier.fillMaxWidth().height(380.dp)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (!granted) {
+                    Button(onClick = {
+                        permLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+                    }) { Text("Izinkan Kamera") }
+                } else {
+                    AndroidView(
+                        factory = { c ->
+                            PreviewView(c).also { v ->
+                                pv = v
+                                recorder.bind(v, lifecycle) { m -> err = m }
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                if (phase == "count") {
+                    Text("$count", style = MaterialTheme.typography.displayLarge)
+                }
+                if (phase == "rec" && pr != null) {
+                    val (s, e) = SliceHelper.range(idx, pr.sliceDurationSec, pr.audioDurationMs)
+                    val prog = (elapsed.toFloat() / (e - s).coerceAtLeast(1)).coerceIn(0f, 1f)
+                    LinearProgressIndicator(prog, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
+                }
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = granted && pr != null && pr.audioPathInternal.isNotEmpty() && phase == "idle",
+                onClick = {
+                    val p = pr ?: return@Button
+                    val (s, e) = SliceHelper.range(idx, p.sliceDurationSec, p.audioDurationMs)
+                    scope.launch {
+                        phase = "count"
+                        for (c in 3 downTo 1) {
+                            count = c; BeepPlayer.tick(); delay(1000)
+                        }
+                        BeepPlayer.go()
+                        val out = FileStore.newTakeFile(ctx, pid, idx)
+                        phase = "rec"
+                        recorder.start(out, onStarted = {}, onDone = { file ->
+                            scope.launch {
+                                audio.stop()
+                                vm.saveTake(pid, idx, s, e, file.absolutePath)
+                                onRecorded(pid, idx)
+                            }
+                        }, onError = { m -> err = m; phase = "idle" })
+                        audio.playSlice(p.audioPathInternal, s, e, p.globalOffsetMs)
+                        delay(e - s)
+                        audio.stop()
+                        recorder.stop()
+                        phase = "done" // menunggu Finalize -> onDone -> preview
+                    }
+                }
+            ) { Text(if (phase == "idle") "● Mulai 3-2-1 + Record" else "Merekam...") }
+            OutlinedButton(
+                enabled = pv != null,
+                onClick = { pv?.let { recorder.flip(it, lifecycle) { m -> err = m } } }
+            ) { Text("⇄ Kamera") }
+        }
+    }
+}
+
+// ---------- 5. PREVIEW + OFFSET + DOWNLOAD ----------
+
+@Composable
+fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(pid to idx) { vm.loadProject(pid) }
+    val pr = vm.current?.takeIf { it.id == pid }
+    var takePath by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pr, idx) { takePath = vm.latestTake(pid, idx)?.videoPathInternal }
+
+    val video = remember { ExoPlayer.Builder(ctx).build().apply { volume = 0f } }
+    val audio = remember { SliceAudioPlayer(ctx) }
+    var playing by remember { mutableStateOf(false) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(pr) { if (pr != null) offset = pr.globalOffsetMs.toFloat() }
+    DisposableEffect(Unit) {
+        onDispose { try { video.release() } catch (_: Exception) {}; audio.release() }
+    }
+    LaunchedEffect(takePath) {
+        takePath?.let {
+            video.setMediaItem(
+                androidx.media3.common.MediaItem.fromUri(
+                    android.net.Uri.fromFile(java.io.File(it))
+                )
+            )
+            video.prepare()
+        }
+    }
+
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Preview Slice ${idx + 1}", style = MaterialTheme.typography.headlineSmall)
+        if (pr == null || takePath == null) {
+            Text(if (pr == null) "memuat..." else "Belum ada rekaman untuk slice ini. Rekam dulu via ● Rec.")
+            return@Column
+        }
+        val (s, e) = SliceHelper.range(idx, pr.sliceDurationSec, pr.audioDurationMs)
+        Card(Modifier.fillMaxWidth().height(260.dp)) {
+            AndroidView(
+                factory = { c ->
+                    PlayerView(c).apply {
+                        player = video
+                        useController = true
+                    }
+                },
+                update = {},
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                if (!playing) {
+                    video.seekTo(0); video.play()
+                    audio.playSlice(pr.audioPathInternal, s, e, offset.toInt()) { scope.launch { playing = false } }
+                    playing = true
+                } else {
+                    video.pause(); audio.stop(); playing = false
+                }
+            }) { Text(if (playing) "❚❚ Pause" else "▶ Play bareng") }
+        }
+        Text("Offset audio: ${offset.toInt()} ms")
         Slider(offset, { offset = it }, valueRange = -1000f..1000f)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {}) { Text("Simpan Offset Global") }
-            OutlinedButton(onClick = {}) { Text("Download ke Gallery") }
+            Button(onClick = {
+                scope.launch {
+                    vm.setGlobalOffset(pr, offset.toInt())
+                    Toast.makeText(ctx, "offset ${offset.toInt()} ms dipakai global", Toast.LENGTH_SHORT).show()
+                }
+            }) { Text("Simpan Offset Global") }
+            OutlinedButton(onClick = {
+                scope.launch {
+                    val uri = Exporter.exportTakeToGallery(
+                        ctx, takePath!!, "RKStudio_slice${idx + 1}_${System.currentTimeMillis()}.mp4"
+                    )
+                    Toast.makeText(
+                        ctx,
+                        if (uri != null) "tersimpan di Gallery (video take)" else "gagal download",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }) { Text("⬇ Gallery") }
         }
+        Text("Catatan: download v1 = video take; mux lagu+offset tahap export.",
+            style = MaterialTheme.typography.bodySmall)
     }
 }
