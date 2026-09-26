@@ -5,6 +5,9 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateMapOf
+import com.rkstudio.cliplocal.data.SliceHelper
+import com.rkstudio.cliplocal.export.Exporter
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rkstudio.cliplocal.data.AppDatabase
@@ -18,6 +21,26 @@ import kotlinx.coroutines.NonCancellable
 
 class StudioViewModel(app: Application) : AndroidViewModel(app) {
     private val db = AppDatabase.get(app)
+    var exporting by mutableStateOf(false); private set
+    var exportError by mutableStateOf<String?>(null); private set
+    val exportedUris = mutableStateMapOf<String, String>()
+
+    fun exportReference(project: Project, index: Int, videoPath: String) {
+        if (exporting) return
+        val key = "${project.id}:$index"
+        val (start, end) = SliceHelper.range(index, project.sliceDurationSec, project.audioDurationMs)
+        exporting = true
+        exportError = null
+        exportedUris.remove(key)
+        Exporter.exportTakeWithAudioToGallery(
+            context = getApplication(), videoPath = videoPath, audioPath = project.audioPathInternal,
+            sliceStartMs = start, sliceEndMs = end, audioDurationMs = project.audioDurationMs,
+            offsetMs = project.globalOffsetMs,
+            displayName = "RKStudio_P${project.id}_S${(index + 1).toString().padStart(3, '0')}_${start}-${end}.mp4",
+            onSuccess = { uri -> exportedUris[key] = uri; exporting = false },
+            onFailure = { message -> exportError = message; exporting = false }
+        )
+    }
 
     var projects by mutableStateOf(emptyList<Project>()); private set
     var current by mutableStateOf<Project?>(null); private set
@@ -86,6 +109,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun setGlobalOffset(p: Project, offsetMs: Int) {
+        exportedUris.keys.filter { it.startsWith("${p.id}:") }.toList().forEach { exportedUris.remove(it) }
         val np = p.copy(globalOffsetMs = offsetMs.coerceIn(-1000, 1000))
         db.projectDao().update(np)
         current = np
@@ -94,6 +118,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun saveTake(
         pid: Long, idx: Int, startMs: Long, endMs: Long, videoPath: String
     ) {
+        exportedUris.remove("$pid:$idx")
         db.takeDao().insert(
             Take(
                 projectId = pid,

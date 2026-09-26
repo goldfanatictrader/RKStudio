@@ -455,8 +455,10 @@ fun RecordScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, o
     var job by remember { mutableStateOf<Job?>(null) }
     var cancelled by remember { mutableStateOf(false) }
     var active by remember { mutableStateOf(true) }
+    var captureId by remember { mutableIntStateOf(0) }
     fun cancelRecording() {
         cancelled = true
+        captureId++
         job?.cancel()
         audio.stop()
         recorder.stop()
@@ -544,6 +546,8 @@ fun RecordScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, o
                 val p = project ?: return@Button
                 val (start, end) = SliceHelper.range(idx, p.sliceDurationSec, p.audioDurationMs)
                 error = null; cancelled = false
+                captureId++
+                val session = captureId
                 job = scope.launch {
                     phase = "count"
                     for (number in 3 downTo 1) { count = number; BeepPlayer.tick(); delay(1000) }
@@ -552,24 +556,24 @@ fun RecordScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, o
                     val output = FileStore.newTakeFile(ctx, pid, idx)
                     recorder.start(output,
                         onStarted = {
-                            if (active && !cancelled) {
+                            if (active && !cancelled && session == captureId) {
                                 phase = "rec"
                                 job = scope.launch {
                                     audio.playSlice(p.audioPathInternal, start, end, p.globalOffsetMs)
                                     delay(end - start)
                                     audio.stop(); phase = "done"; recorder.stop()
                                 }
-                            } else recorder.stop()
+                            }
                         },
                         onDone = { file ->
-                            if (!active || cancelled) file.delete() else scope.launch {
+                            if (!active || cancelled || session != captureId) file.delete() else scope.launch {
                                 try { audio.stop(); vm.saveTake(pid, idx, start, end, file.absolutePath); onRecorded(pid, idx) }
                                 catch (e: Exception) { error = "Rekaman tidak dapat disimpan. Coba lagi."; phase = "idle" }
                             }
                         },
                         onError = { message ->
                             output.delete()
-                            if (active) { job?.cancel(); audio.stop(); error = message; phase = "idle" }
+                            if (active && session == captureId) { job?.cancel(); audio.stop(); error = message; phase = "idle" }
                         })
                 }
             }) {
@@ -607,8 +611,8 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, 
     var showSync by remember { mutableStateOf(false) }
     var showRetake by remember { mutableStateOf(false) }
     var offset by remember { mutableFloatStateOf(0f) }
-    var exporting by remember { mutableStateOf(false) }
-    var exportedUri by rememberSaveable(pid, idx) { mutableStateOf<String?>(null) }
+    val exporting = vm.exporting
+    val exportedUri = vm.exportedUris["$pid:$idx"]
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(project?.globalOffsetMs) { project?.let { offset = it.globalOffsetMs.toFloat() } }
     fun stopPreview() { video.pause(); audio.stop(); playing = false }
@@ -655,7 +659,6 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, 
                     scope.launch {
                         try {
                             vm.setGlobalOffset(project, offset.toInt())
-                            exportedUri = null
                             showSync = false
                         } catch (e: Exception) { error = "Pengaturan sync belum tersimpan. Coba lagi." }
                     }
@@ -667,16 +670,8 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, 
         if (project != null && takePath != null) Surface(shadowElevation = 12.dp) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Button(enabled = !exporting, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), onClick = {
-                    val (start, end) = SliceHelper.range(idx, project.sliceDurationSec, project.audioDurationMs)
-                    exporting = true; error = null; exportedUri = null; stopPreview()
-                    val filename = "RKStudio_P${pid}_S${(idx + 1).toString().padStart(3, '0')}_${start}-${end}.mp4"
-                    Exporter.exportTakeWithAudioToGallery(
-                        context = ctx, videoPath = takePath!!, audioPath = project.audioPathInternal,
-                        sliceStartMs = start, sliceEndMs = end, audioDurationMs = project.audioDurationMs,
-                        offsetMs = project.globalOffsetMs, displayName = filename,
-                        onSuccess = { uri -> exporting = false; exportedUri = uri },
-                        onFailure = { message -> exporting = false; error = "Ekspor gagal: $message" }
-                    )
+                    error = null; stopPreview()
+                    vm.exportReference(project, idx, takePath!!)
                 }) {
                     if (exporting) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
                     Text(if (exporting) "Menggabungkan video + audio…" else if (exportedUri != null) "Ekspor lagi" else "Ekspor video referensi")
@@ -727,7 +722,7 @@ fun PreviewScreen(vm: StudioViewModel, pid: Long, idx: Int, onBack: () -> Unit, 
                         Text("Atur →", color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                error?.let { StudioNotice("Perlu dicoba lagi", it, true) }
+                (error ?: vm.exportError)?.let { StudioNotice("Perlu dicoba lagi", it, true) }
                 exportedUri?.let { uri ->
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
