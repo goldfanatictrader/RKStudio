@@ -145,15 +145,22 @@ fun CreateProjectScreen(vm: StudioViewModel, onDone: (Long) -> Unit) {
 
 @Composable
 fun SlicesScreen(vm: StudioViewModel, pid: Long, onRecord: (Int) -> Unit, onPreview: (Int) -> Unit) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current
+    val sliceAudio = remember { SliceAudioPlayer(ctx) }
+    var playingSlice by remember { mutableIntStateOf(-1) }
+
     LaunchedEffect(pid) { vm.loadProject(pid) }
     DisposableEffect(lifecycle) {
         val obs = LifecycleEventObserver { _, e ->
             if (e == Lifecycle.Event.ON_RESUME) vm.refreshTakes(pid)
         }
         lifecycle.lifecycle.addObserver(obs)
-        onDispose { lifecycle.lifecycle.removeObserver(obs) }
+        onDispose {
+            lifecycle.lifecycle.removeObserver(obs)
+            sliceAudio.release()
+        }
     }
     val pr = vm.current
     if (pr == null || pr.id != pid) {
@@ -176,19 +183,65 @@ fun SlicesScreen(vm: StudioViewModel, pid: Long, onRecord: (Int) -> Unit, onPrev
             val (s, e) = SliceHelper.range(i, pr.sliceDurationSec, pr.audioDurationMs)
             val hasTake = vm.takes.any { it.sliceIndex == i }
             Card(Modifier.fillMaxWidth()) {
-                Row(
+                Column(
                     Modifier.padding(12.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column {
-                        Text("Slice ${i + 1} ${if (hasTake) "●" else ""}")
-                        Text("${FileStore.fmt(s)} - ${FileStore.fmt(e)}",
-                            style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Slice ${i + 1} ${if (hasTake) "●" else ""}")
+                            Text(
+                                "${FileStore.fmt(s)} - ${FileStore.fmt(e)} • ${(e - s) / 1000.0}s",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (playingSlice == i) {
+                            Text("Playing…", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onRecord(i) }) { Text("● Rec") }
-                        OutlinedButton(onClick = { onPreview(i) }) { Text("▶ Prev") }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (playingSlice == i) {
+                                    sliceAudio.stop()
+                                    playingSlice = -1
+                                } else {
+                                    sliceAudio.stop()
+                                    playingSlice = i
+                                    sliceAudio.playSlice(
+                                        audioPath = pr.audioPathInternal,
+                                        startMs = s,
+                                        endMs = e,
+                                        offsetMs = pr.globalOffsetMs,
+                                        onEnded = { playingSlice = -1 }
+                                    )
+                                }
+                            }
+                        ) { Text(if (playingSlice == i) "■ Stop" else "▶ Audio") }
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                sliceAudio.stop()
+                                playingSlice = -1
+                                onRecord(i)
+                            }
+                        ) { Text("● Rec") }
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                sliceAudio.stop()
+                                playingSlice = -1
+                                onPreview(i)
+                            }
+                        ) { Text("▶ Prev") }
                     }
                 }
             }
