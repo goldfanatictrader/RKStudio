@@ -2,10 +2,13 @@ package com.rkstudio.cliplocal.export
 
 import android.content.ContentValues
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -69,7 +72,9 @@ object Exporter {
         val composition = Composition.Builder(
             EditedMediaItemSequence(listOf(videoItem)),
             EditedMediaItemSequence(listOf(audioItem))
-        ).build()
+        )
+            .experimentalSetForceAudioTrack(true)
+            .build()
 
         val tmp = File(
             context.cacheDir,
@@ -79,12 +84,22 @@ object Exporter {
 
         activeTransformer?.cancel()
         val transformer = Transformer.Builder(context.applicationContext)
+            .setAudioMimeType(MimeTypes.AUDIO_AAC)
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(
                     composition: Composition,
                     exportResult: ExportResult
                 ) {
                     activeTransformer = null
+                    val tracks = inspectTracks(tmp)
+                    if (!tracks.hasVideo || !tracks.hasAudio) {
+                        tmp.delete()
+                        onFailure(
+                            "hasil export tidak valid: video=${tracks.hasVideo}, audio=${tracks.hasAudio}"
+                        )
+                        return
+                    }
+
                     val uri = copyToGallery(context, tmp, displayName)
                     tmp.delete()
                     if (uri != null) onSuccess(uri)
@@ -110,6 +125,34 @@ object Exporter {
             activeTransformer = null
             tmp.delete()
             onFailure(e.message ?: "gagal memulai export")
+        }
+    }
+
+    private data class TrackPresence(
+        val hasVideo: Boolean,
+        val hasAudio: Boolean
+    )
+
+    private fun inspectTracks(file: File): TrackPresence {
+        if (!file.exists() || file.length() <= 0L) {
+            return TrackPresence(hasVideo = false, hasAudio = false)
+        }
+
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            var hasVideo = false
+            var hasAudio = false
+            for (i in 0 until extractor.trackCount) {
+                val mime = extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME).orEmpty()
+                if (mime.startsWith("video/")) hasVideo = true
+                if (mime.startsWith("audio/")) hasAudio = true
+            }
+            TrackPresence(hasVideo = hasVideo, hasAudio = hasAudio)
+        } catch (_: Exception) {
+            TrackPresence(hasVideo = false, hasAudio = false)
+        } finally {
+            try { extractor.release() } catch (_: Exception) {}
         }
     }
 
