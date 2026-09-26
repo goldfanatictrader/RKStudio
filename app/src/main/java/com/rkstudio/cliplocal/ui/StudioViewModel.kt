@@ -1,5 +1,3 @@
-[Reading 96 lines from start (total: 96 lines, 0 remaining)]
-
 package com.rkstudio.cliplocal.ui
 
 import android.app.Application
