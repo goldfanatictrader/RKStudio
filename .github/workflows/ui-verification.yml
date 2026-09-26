@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'app/src/androidTest/**'
+      - 'app/src/main/**'
+      - 'app/src/debug/AndroidManifest.xml'
+      - 'app/build.gradle.kts'
       - '.github/workflows/ui-verification.yml'
   workflow_dispatch:
 permissions:
