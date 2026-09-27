@@ -41,8 +41,8 @@ object GoogleGeminiGateway {
             .put("content", "Balas tepat: RKStudio tersambung.")), false, 64)
     }
 
-    fun ask(config: AiConfig, messages: JSONArray): String = ask(
-        config.requestKey, config.requestModel, messages, config.googleSearch, 4096
+    fun ask(config: AiConfig, messages: JSONArray, useGoogleSearch: Boolean = false): String = ask(
+        config.requestKey, config.requestModel, messages, config.googleSearch && useGoogleSearch, 4096
     )
 
     private fun ask(key: String, model: String, messages: JSONArray, search: Boolean, maxTokens: Int): String {

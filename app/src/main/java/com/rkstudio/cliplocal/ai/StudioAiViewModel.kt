@@ -192,7 +192,7 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
                 "Konteks analisis: ${analysis.take(10000)}"))
         history.forEach { messages.put(AiGateway.text(it.role, it.text)) }
         messages.put(AiGateway.text("user", input))
-        val output = withContext(Dispatchers.IO) { AiGateway.ask(config, messages) }
+        val output = withContext(Dispatchers.IO) { AiGateway.ask(config, messages, useGoogleSearch = true) }
         chat.add(StudioTurn("user", input))
         chat.add(StudioTurn("assistant", output))
     }

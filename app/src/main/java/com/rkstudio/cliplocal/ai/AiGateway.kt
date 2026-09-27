@@ -55,9 +55,9 @@ object AiGateway {
         }
     }
 
-    fun ask(config: AiConfig, messages: JSONArray): String {
+    fun ask(config: AiConfig, messages: JSONArray, useGoogleSearch: Boolean = false): String {
         require(config.ready) { "Konfigurasikan provider analisis dahulu." }
-        if (config.provider == "google") return GoogleGeminiGateway.ask(config, messages)
+        if (config.provider == "google") return GoogleGeminiGateway.ask(config, messages, useGoogleSearch)
         val body = JSONObject().put("model", config.model).put("messages", messages)
             .put("stream", false).put("max_tokens", 2600)
         val data = request(endpoint(config.endpoint) + "/chat/completions", config.apiKey, body)
