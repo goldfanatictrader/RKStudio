@@ -22,7 +22,7 @@ class StudioUiTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val db = AppDatabase.get(app)
 
-    @Before fun reset() { db.clearAllTables() }
+    @Before fun reset() { db.clearAllTables(); File(app.filesDir, "timeline-projects-v1.json").delete() }
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
@@ -51,6 +51,7 @@ class StudioUiTest {
 
     @Test fun emptyHomeAndCreateFlow() {
         compose.setContent { StudioTheme { AppNav() } }
+        compose.onNodeWithText("Buka proyek potong lagu & rekam →").performClick()
         compose.onNodeWithText("Studio kamu").assertIsDisplayed()
         screenshot("01-empty-home")
         compose.onNodeWithText("+  Proyek baru").performClick()
@@ -66,6 +67,7 @@ class StudioUiTest {
     @Test fun projectAndQueue() {
         seed(true)
         compose.setContent { StudioTheme { AppNav() } }
+        compose.onNodeWithText("Buka proyek potong lagu & rekam →").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Kota yang Sama").fetchSemanticsNodes().isNotEmpty() }
         screenshot("04-projects")
         compose.onNodeWithText("Kota yang Sama").performClick()

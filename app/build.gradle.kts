@@ -13,15 +13,15 @@ android {
         minSdk = 29
         targetSdk = 34
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 5
-        versionName = "1.2.3"
+        versionCode = 6
+        versionName = "1.3.0"
     }
     buildTypes {
         release {
             isMinifyEnabled = false
         }
         debug {
-            applicationIdSuffix = ".ai.providers.preview"
+            applicationIdSuffix = ".timeline.preview"
         }
     }
     compileOptions {

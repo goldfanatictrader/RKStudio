@@ -16,6 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Restore stable preview signing
+        if: github.event_name != 'pull_request'
+        env:
+          PREVIEW_KEYSTORE: ${{ secrets.RKSTUDIO_PREVIEW_KEYSTORE }}
+        run: |
+          test -n "$PREVIEW_KEYSTORE"
+          mkdir -p "$HOME/.android"
+          printf '%s' "$PREVIEW_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4

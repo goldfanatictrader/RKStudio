@@ -11,14 +11,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val StudioColors = darkColorScheme(
-    primary = Color(0xFFCEEF78), onPrimary = Color(0xFF192600),
-    primaryContainer = Color(0xFF303E1C), onPrimaryContainer = Color(0xFFE0F4B7),
-    secondary = Color(0xFFB8C6AC), onSecondary = Color(0xFF20291B),
-    secondaryContainer = Color(0xFF293322), onSecondaryContainer = Color(0xFFDDE7D4),
-    background = Color(0xFF10120F), onBackground = Color(0xFFF1F3EB),
-    surface = Color(0xFF181C16), onSurface = Color(0xFFF1F3EB),
-    surfaceVariant = Color(0xFF252B21), onSurfaceVariant = Color(0xFFB8C0B0),
-    outline = Color(0xFF818C77), outlineVariant = Color(0xFF394232),
+    primary = Color(0xFFF4AA73), onPrimary = Color(0xFF2C1708),
+    primaryContainer = Color(0xFF493120), onPrimaryContainer = Color(0xFFFFDBC2),
+    secondary = Color(0xFFC4C5C7), onSecondary = Color(0xFF242527),
+    secondaryContainer = Color(0xFF313235), onSecondaryContainer = Color(0xFFE3E3E6),
+    background = Color(0xFF111214), onBackground = Color(0xFFF2F1ED),
+    surface = Color(0xFF191A1D), onSurface = Color(0xFFF2F1ED),
+    surfaceVariant = Color(0xFF25262A), onSurfaceVariant = Color(0xFFBABBBD),
+    outline = Color(0xFF85868A), outlineVariant = Color(0xFF393A3E),
     error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
     errorContainer = Color(0xFF45201E), onErrorContainer = Color(0xFFFFDAD6)
 )
@@ -29,8 +29,8 @@ fun StudioTheme(content: @Composable () -> Unit) {
         colorScheme = StudioColors,
         shapes = Shapes(
             extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
-            medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(28.dp),
-            extraLarge = RoundedCornerShape(32.dp)
+            medium = RoundedCornerShape(8.dp), large = RoundedCornerShape(12.dp),
+            extraLarge = RoundedCornerShape(16.dp)
         ),
         typography = Typography(
             headlineLarge = TextStyle(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp),

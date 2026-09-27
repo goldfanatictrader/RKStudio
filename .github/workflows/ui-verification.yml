@@ -17,6 +17,15 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Restore stable preview signing
+        if: github.event_name != 'pull_request'
+        env:
+          PREVIEW_KEYSTORE: ${{ secrets.RKSTUDIO_PREVIEW_KEYSTORE }}
+        run: |
+          test -n "$PREVIEW_KEYSTORE"
+          mkdir -p "$HOME/.android"
+          printf '%s' "$PREVIEW_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -46,7 +55,7 @@ jobs:
             adb shell wm size 720x1280
             adb shell wm density 320
             adb shell settings put system font_scale 1.3
-            gradle connectedDebugAndroidTest --max-workers=2 --stacktrace; result=$?; mkdir -p qa-screens; adb exec-out run-as com.rkstudio.cliplocal.ai.providers.preview tar -C files -cf - qa > qa-screens.tar; tar -xf qa-screens.tar -C qa-screens; exit $result
+            gradle connectedDebugAndroidTest --max-workers=2 --stacktrace; result=$?; mkdir -p qa-screens; adb exec-out run-as com.rkstudio.cliplocal.timeline.preview tar -C files -cf - qa > qa-screens.tar; tar -xf qa-screens.tar -C qa-screens; adb pull /sdcard/Download/RKStudio-QA qa-screens/; exit $result
       - name: Collect screenshots
         if: always()
         run: |

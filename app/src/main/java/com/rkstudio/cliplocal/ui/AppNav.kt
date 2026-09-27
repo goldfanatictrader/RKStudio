@@ -58,7 +58,16 @@ import com.rkstudio.cliplocal.ai.StudioAiViewModel
 @Composable
 fun AppNav(vm: StudioViewModel = viewModel(), ai: StudioAiViewModel = viewModel()) {
     val nav = rememberNavController()
-    NavHost(nav, startDestination = "projects") {
+    val timeline: TimelineViewModel = viewModel()
+    NavHost(nav, startDestination = "timeline-home") {
+        composable("timeline-home") {
+            TimelineHome(timeline, { nav.navigate("timeline/$it") },
+                { nav.navigate("projects") }, { nav.navigate("ai-settings") })
+        }
+        composable("timeline/{id}") { entry ->
+            TimelineEditor(timeline, ai, entry.arguments!!.getString("id")!!,
+                { nav.popBackStack() }, { nav.navigate("ai-settings") })
+        }
         composable("ai") {
             AiStudioScreen(ai, null, { nav.popBackStack() }, { nav.navigate("ai-settings") })
         }
