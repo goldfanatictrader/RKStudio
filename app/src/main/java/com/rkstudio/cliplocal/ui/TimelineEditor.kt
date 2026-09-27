@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
@@ -133,7 +134,20 @@ fun TimelineEditor(vm: TimelineViewModel, ai: StudioAiViewModel, pid: String, on
         if(uri!=null && target!=null) vm.importMedia(pid,target.first,uri,target.second)
         importTarget=null
     }
-    Scaffold { padding ->
+    val previewHeight=if(LocalConfiguration.current.screenHeightDp < 700) 180.dp else 260.dp
+    Scaffold(bottomBar = {
+        Surface(tonalElevation=3.dp) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Button(onClick={stop();sheet=if(shot.active.kind=="script") "image" else "video"},
+                    enabled=!vm.working && vm.job==null) {
+                    Text(when(shot.active.kind) {"script"->"Generate gambar";"image"->"Generate video";else->"Regenerate video"})
+                }
+                OutlinedButton(onClick={stop();sheet="versions"}) {Text("Pilih versi")}
+                OutlinedButton(onClick={stop();sheet="edit"}) {Text("Edit naskah")}
+            }
+        }
+    }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
             verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -144,7 +158,7 @@ fun TimelineEditor(vm: TimelineViewModel, ai: StudioAiViewModel, pid: String, on
                 }
                 TextButton(onClick={stop();onSettings()}){Text("API")}
             }
-            Box(Modifier.fillMaxWidth().height(260.dp).background(Color.Black),contentAlignment=Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(previewHeight).background(Color.Black),contentAlignment=Alignment.Center) {
                 val aspect=when(project.ratio){"16:9"->16f/9f;"1:1"->1f;else->9f/16f}
                 Box(Modifier.aspectRatio(aspect,matchHeightConstraintsFirst=true).fillMaxHeight()
                     .background(Color(0xFF202124)),contentAlignment=Alignment.Center) {
@@ -204,16 +218,11 @@ fun TimelineEditor(vm: TimelineViewModel, ai: StudioAiViewModel, pid: String, on
                 }
                 Text("${shot.durationMs/1000} detik · ${kindLabel(shot.active.kind).lowercase()}",
                     style=MaterialTheme.typography.bodySmall)
-                if(shot.active.kind=="video" && shot.versions.lastOrNull {it.kind=="image"}?.id != shot.active.sourceId) {
+                if(shot.active.kind=="video" && shot.versions.any {it.kind=="image"} && shot.versions.lastOrNull {it.kind=="image"}?.id != shot.active.sourceId) {
                     Text("Video ini memakai gambar acuan sebelumnya. Ganti versi video atau regenerate untuk memakai gambar baru.",
                         color=EditorAccent,style=MaterialTheme.typography.bodySmall)
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Button(onClick={stop();sheet=if(shot.active.kind=="script") "image" else "video"},
-                        enabled=shot.active.kind!="video" && !vm.working && vm.job==null) {
-                        Text(if(shot.active.kind=="script") "Generate gambar" else "Generate video")
-                    }
-                    OutlinedButton(onClick={stop();sheet="edit"}){Text("Edit naskah")}
                     if(shot.active.kind!="script") OutlinedButton(onClick={stop();sheet=shot.active.kind}){Text("Regenerate")}
                     OutlinedButton(onClick={stop();sheet="idea"}){Text("Coba ide baru")}
                 }
@@ -240,7 +249,8 @@ fun TimelineEditor(vm: TimelineViewModel, ai: StudioAiViewModel, pid: String, on
             }
         }
     }
-    if(sheet.isNotBlank()) ModalBottomSheet(onDismissRequest={sheet=""}) {
+    if(sheet.isNotBlank()) ModalBottomSheet(onDismissRequest={sheet=""},
+        sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement=Arrangement.spacedBy(12.dp)) {
             when(sheet) {

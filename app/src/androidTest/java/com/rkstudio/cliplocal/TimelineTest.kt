@@ -71,7 +71,7 @@ class TimelineTest {
         }
         compose.onNodeWithText("Play").assertIsDisplayed().performClick()
         compose.onNodeWithText("Jeda").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Generate gambar").performScrollTo().performClick()
-        compose.onNodeWithText("Buka pengaturan").assertIsDisplayed()
+        compose.onNodeWithText("Generate gambar").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Buka pengaturan").performScrollTo().assertIsDisplayed()
     }
 }
