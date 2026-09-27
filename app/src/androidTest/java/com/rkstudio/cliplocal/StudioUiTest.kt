@@ -119,13 +119,13 @@ class StudioUiTest {
     @Test fun aiSettingsOffersGoogleAndCustomProviders() {
         val vm = StudioAiViewModel(app)
         compose.setContent { StudioTheme { AiSettingsScreen(vm, {}) } }
-        compose.onNodeWithText("Google resmi").assertIsDisplayed()
-        compose.onNodeWithText("Custom endpoint").assertIsDisplayed()
-        compose.onNodeWithText("Model ID Google").assertIsDisplayed()
-        compose.onNodeWithText("Google AI API key").assertIsDisplayed()
+        compose.onNodeWithText("Google resmi").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Custom endpoint").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Model ID Google").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Google AI API key").performScrollTo().assertIsDisplayed()
         screenshot("11-ai-provider-settings")
         compose.onNodeWithText("Custom compatible endpoint").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Base URL, akhiri dengan /v1").assertIsDisplayed()
+        compose.onNodeWithText("Base URL, akhiri dengan /v1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("SimpleNGAT API key baru").performScrollTo().assertIsDisplayed()
     }
 
