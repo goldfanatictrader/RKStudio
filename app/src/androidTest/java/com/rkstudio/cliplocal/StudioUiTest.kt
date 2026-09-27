@@ -116,6 +116,19 @@ class StudioUiTest {
         compose.onNodeWithText("## Prompt video").assertDoesNotExist()
     }
 
+    @Test fun aiSettingsOffersGoogleAndCustomProviders() {
+        val vm = StudioAiViewModel(app)
+        compose.setContent { StudioTheme { AiSettingsScreen(vm, {}) } }
+        compose.onNodeWithText("Google resmi").assertIsDisplayed()
+        compose.onNodeWithText("Custom endpoint").assertIsDisplayed()
+        compose.onNodeWithText("Model ID Google").assertIsDisplayed()
+        compose.onNodeWithText("Google AI API key").assertIsDisplayed()
+        screenshot("11-ai-provider-settings")
+        compose.onNodeWithText("Custom compatible endpoint").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Base URL, akhiri dengan /v1").assertIsDisplayed()
+        compose.onNodeWithText("SimpleNGAT API key baru").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun providerGateAndLocalKeyEncryption() {
         val store = AiConfigStore(app)
         store.clearGemini()
