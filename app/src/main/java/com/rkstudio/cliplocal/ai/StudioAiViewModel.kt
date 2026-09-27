@@ -68,7 +68,7 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
         withContext(Dispatchers.IO) { GoogleGeminiGateway.testKey(key, selected) }
         store.saveGoogle(selected, key, search)
         config = store.read()
-        models = GoogleGeminiGateway.models
+        models = listOf(AiModel(selected, true, true, true))
         onDone()
     }
 
