@@ -93,13 +93,19 @@ private fun AiResult(title: String, content: String, copyText: String = content,
 fun AiSettingsScreen(vm: StudioAiViewModel, onBack: () -> Unit) {
     var endpoint by remember { mutableStateOf(vm.config.endpoint) }
     var geminiKey by remember { mutableStateOf("") }
+    var googleKey by remember { mutableStateOf("") }
+    var googleModel by remember { mutableStateOf(vm.config.googleModel) }
+    var googleSearch by remember { mutableStateOf(vm.config.googleSearch) }
     var simpleKey by remember { mutableStateOf("") }
     var model by remember { mutableStateOf(vm.config.model) }
     var clearGemini by remember { mutableStateOf(false) }
+    var clearGoogle by remember { mutableStateOf(false) }
     var clearSimple by remember { mutableStateOf(false) }
-    LaunchedEffect(vm.models) {
-        val ids = vm.models.map { it.id }
-        if (ids.isNotEmpty() && model !in ids) model = if ("ag/gemini-3.8-flash" in ids) "ag/gemini-3.8-flash" else ids.first()
+    LaunchedEffect(vm.models, vm.config.provider) {
+        if (vm.config.provider == "custom") {
+            val ids = vm.models.map { it.id }
+            if (ids.isNotEmpty() && model !in ids) model = if ("ag/gemini-3.8-flash" in ids) "ag/gemini-3.8-flash" else ids.first()
+        }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -107,10 +113,43 @@ fun AiSettingsScreen(vm: StudioAiViewModel, onBack: () -> Unit) {
         AiTitle("PROVIDER / LOKAL", "Konfigurasi AI",
             "Key disimpan terenkripsi di perangkat. Permintaan dikirim langsung ke provider saat fitur dipakai.")
         AiError(vm.error)
+        Text("Provider yang dipakai untuk Analisis dan Composer", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = vm.config.provider == "google", onClick = { vm.selectProvider("google"); googleModel = vm.config.googleModel },
+                label = { Text("Google resmi") })
+            FilterChip(selected = vm.config.provider == "custom", onClick = { vm.selectProvider("custom"); model = vm.config.model },
+                label = { Text("Custom endpoint") })
+        }
         Card {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Analisis · Gemini compatible", style = MaterialTheme.typography.titleLarge)
-                Text(if (vm.config.ready) "Tersambung · ${vm.config.model}" else "Belum dikonfigurasi",
+                Text("Google Gemini resmi · Interactions API", style = MaterialTheme.typography.titleLarge)
+                Text(if (vm.config.googleReady) "Tersimpan · ${vm.config.googleModel}" else "Belum dikonfigurasi",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Gunakan API key Google AI Studio. Tidak memakai OAuth 9router.",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(googleModel, { googleModel = it.trim() }, label = { Text("Model ID Google") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text("Default: ${GoogleGeminiGateway.defaultModel}. Ganti jika model ini belum tersedia di project AI Studio Anda.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(googleKey, { googleKey = it }, label = { Text("Google AI API key") },
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = googleSearch, onCheckedChange = { googleSearch = it })
+                    Text("Izinkan Google Search untuk Composer")
+                }
+                Text("Media dikirim inline ke Google. store:false menonaktifkan penyimpanan Interaction di riwayat API; Google tetap memproses media untuk menjawab.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(enabled = googleKey.isNotBlank() && !vm.busy,
+                    onClick = { vm.configureGoogle(googleKey, googleModel, googleSearch) { googleKey = "" } },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Uji key & simpan Google resmi") }
+                if (vm.config.googleReady) TextButton(onClick = { clearGoogle = true }) { Text("Hapus Google API key") }
+            }
+        }
+        Card {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Custom compatible endpoint", style = MaterialTheme.typography.titleLarge)
+                Text(if (vm.config.customReady) "Tersimpan · ${vm.config.model}" else "Belum dikonfigurasi",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(endpoint, { endpoint = it }, label = { Text("Base URL, akhiri dengan /v1") },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -128,7 +167,7 @@ fun AiSettingsScreen(vm: StudioAiViewModel, onBack: () -> Unit) {
                 Button(enabled = model in vm.models.map { it.id } && geminiKey.isNotBlank() && !vm.busy,
                     onClick = { vm.configureGemini(endpoint, geminiKey, model) { geminiKey = "" } },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Simpan provider analisis") }
-                if (vm.config.ready) TextButton(onClick = { clearGemini = true }) { Text("Hapus konfigurasi analisis") }
+                if (vm.config.customReady) TextButton(onClick = { clearGemini = true }) { Text("Hapus konfigurasi analisis") }
             }
         }
         Card {
@@ -156,6 +195,11 @@ fun AiSettingsScreen(vm: StudioAiViewModel, onBack: () -> Unit) {
         text = { Text("Key dan endpoint lokal akan dihapus.") },
         confirmButton = { TextButton(onClick = { vm.clearGemini(); clearGemini = false; endpoint = ""; model = "" }) { Text("Hapus") } },
         dismissButton = { TextButton(onClick = { clearGemini = false }) { Text("Batal") } })
+    if (clearGoogle) AlertDialog(onDismissRequest = { clearGoogle = false },
+        title = { Text("Hapus Google Gemini key?") },
+        text = { Text("API key Google dan preferensi Search lokal akan dihapus.") },
+        confirmButton = { TextButton(onClick = { vm.clearGoogle(); clearGoogle = false; googleKey = "" }) { Text("Hapus") } },
+        dismissButton = { TextButton(onClick = { clearGoogle = false }) { Text("Batal") } })
     if (clearSimple) AlertDialog(onDismissRequest = { clearSimple = false },
         title = { Text("Hapus SimpleNGAT key?") },
         text = { Text("Key dan ID job yang tersimpan di perangkat ini akan dihapus.") },
@@ -197,7 +241,7 @@ fun AiStudioScreen(vm: StudioAiViewModel, project: Project?, onBack: () -> Unit,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = onSettings) { Text("Konfigurasi analisis") }
                     } else {
-                        Text("Model: ${vm.config.model}", style = MaterialTheme.typography.labelMedium)
+                        Text("Model: ${vm.config.requestModel}", style = MaterialTheme.typography.labelMedium)
                         OutlinedTextField(goal, { goal = it }, label = { Text("Arah konsep / brief opsional") },
                             minLines = 2, modifier = Modifier.fillMaxWidth())
                         if (project != null) Card {

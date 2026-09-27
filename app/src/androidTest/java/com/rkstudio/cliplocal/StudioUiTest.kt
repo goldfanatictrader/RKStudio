@@ -130,6 +130,16 @@ class StudioUiTest {
         assertFalse(raw.contains("test-secret-only"))
         store.clearGemini()
         assertTrue(store.read().apiKey.isBlank())
+        store.saveGoogle("gemini-3.8-flash", "google-secret-only", true)
+        val googleRaw = app.getSharedPreferences("rkstudio_ai_config", 0).getString("google_key", "")!!
+        assertFalse(googleRaw.contains("google-secret-only"))
+        assertEquals("google-secret-only", store.read().googleApiKey)
+        assertEquals("google", store.read().provider)
+        assertTrue(store.read().googleSearch)
+        store.selectProvider("custom")
+        assertEquals("custom", store.read().provider)
+        store.clearGoogle()
+        assertTrue(store.read().googleApiKey.isBlank())
     }
 
 }

@@ -63,11 +63,33 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
         onDone()
     }
 
+    fun configureGoogle(key: String, selected: String, search: Boolean, onDone: () -> Unit) = work {
+        require(selected.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) { "Masukkan ID model Google yang valid." }
+        withContext(Dispatchers.IO) { GoogleGeminiGateway.testKey(key, selected) }
+        store.saveGoogle(selected, key, search)
+        config = store.read()
+        models = GoogleGeminiGateway.models
+        onDone()
+    }
+
+    fun discoverGoogle(key: String, selected: String) = work {
+        withContext(Dispatchers.IO) { GoogleGeminiGateway.testKey(key, selected) }
+        models = listOf(AiModel(selected, true, true, true))
+    }
+
     fun discoverGemini(url: String, key: String) = work {
         models = withContext(Dispatchers.IO) { AiGateway.models(url, key) }
     }
 
+    fun selectProvider(provider: String) {
+        store.selectProvider(provider)
+        config = store.read()
+        models = if (provider == "google" && config.googleModel.isNotBlank())
+            listOf(AiModel(config.googleModel, true, true, true)) else emptyList()
+    }
+
     fun clearGemini() { store.clearGemini(); config = store.read(); models = emptyList(); analysis = ""; prompt = ""; chat.clear() }
+    fun clearGoogle() { store.clearGoogle(); config = store.read(); models = emptyList(); analysis = ""; prompt = ""; chat.clear() }
 
     fun configureSimple(key: String, onDone: () -> Unit) = work {
         val response = withContext(Dispatchers.IO) { SimpleNgatClient.account(key) to SimpleNgatClient.models(key) }
@@ -89,7 +111,8 @@ class StudioAiViewModel(app: Application) : AndroidViewModel(app) {
         if (busy) { resumeJob(); return }
         if ((config.ready && models.isEmpty()) || (config.simpleReady && images.isEmpty())) work {
             if (config.ready && models.isEmpty()) {
-                runCatching { withContext(Dispatchers.IO) {
+                if (config.provider == "google") models = GoogleGeminiGateway.models
+                else runCatching { withContext(Dispatchers.IO) {
                     AiGateway.models(config.endpoint, config.apiKey)
                 } }.onSuccess { models = it }.onFailure { error = "Model analisis: ${it.message}" }
             }
