@@ -204,6 +204,10 @@ fun TimelineEditor(vm: TimelineViewModel, ai: StudioAiViewModel, pid: String, on
                 }
                 Text("${shot.durationMs/1000} detik · ${kindLabel(shot.active.kind).lowercase()}",
                     style=MaterialTheme.typography.bodySmall)
+                if(shot.active.kind=="video" && shot.versions.lastOrNull {it.kind=="image"}?.id != shot.active.sourceId) {
+                    Text("Video ini memakai gambar acuan sebelumnya. Ganti versi video atau regenerate untuk memakai gambar baru.",
+                        color=EditorAccent,style=MaterialTheme.typography.bodySmall)
+                }
                 Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     Button(onClick={stop();sheet=if(shot.active.kind=="script") "image" else "video"},
                         enabled=shot.active.kind!="video" && !vm.working && vm.job==null) {
@@ -376,10 +380,9 @@ private fun TimelineVideo(uri: String, offset: Long, playing: Boolean, buffering
     AndroidView(factory={PlayerView(it).apply{useController=false;this.player=player}},
         update={it.player=player},modifier=Modifier.fillMaxSize())
     LaunchedEffect(offset,playing) {
-        if(kotlin.math.abs(player.currentPosition-offset)>300 || !playing) {
-            val duration=player.duration
-            player.seekTo(if(duration>0) offset.coerceAtMost((duration-1).coerceAtLeast(0)) else offset)
-        }
+        val duration=player.duration
+        val desired=if(duration>0) offset.coerceAtMost((duration-1).coerceAtLeast(0)) else offset
+        if(kotlin.math.abs(player.currentPosition-desired)>300 || !playing) player.seekTo(desired)
         player.playWhenReady=playing && (player.duration<=0 || offset<player.duration)
     }
 }

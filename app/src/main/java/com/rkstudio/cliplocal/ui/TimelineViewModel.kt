@@ -190,9 +190,13 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
     }
     private fun complete(urls: List<String>) {
         val j = job ?: return
-        change(j.getString("pid"),j.getString("sid")) { s ->
-            s.copy(versions = s.versions + urls.map { ShotVersion(kind = j.getString("kind"),
-                text = j.getString("prompt"),uri = it,sourceId = j.getString("source"),model = j.getString("model")) })
+        projects = projects.map { p ->
+            if(p.id != j.getString("pid")) p else p.copy(shots = p.shots.map { s ->
+                if(s.id != j.getString("sid")) s else s.copy(versions = s.versions + urls.map {
+                    ShotVersion(kind = j.getString("kind"), text = j.getString("prompt"),uri = it,
+                        sourceId = j.getString("source"),model = j.getString("model"))
+                })
+            })
         }
         job = null; save(); status = "Versi baru siap. Pilih versi untuk menggunakannya."
     }
